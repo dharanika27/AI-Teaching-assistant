@@ -29,6 +29,7 @@ tqdm
 # Authentication
 pymongo[bson] 
 bcrypt 
+certifi
 
 # Frontend
 streamlit
