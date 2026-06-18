@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBasic,HTTPBasicCredentials
+from pymongo.errors import PyMongoError
 from .model import StudentUser, TeacherUser
 from config.db import users_collection
 from .hash_utils import hash_password,verify_password
@@ -12,7 +13,12 @@ security=HTTPBasic()
 
 def authenticate(credentials:HTTPBasicCredentials=Depends(security)):
     """Authenticates a user using HTTP Basic Auth"""
-    user=users_collection.find_one({"username":credentials.username})
+    try:
+        user=users_collection.find_one({"username":credentials.username})
+    except PyMongoError as e:
+        print("[AUTH ERROR] MongoDB login lookup failed:",repr(e))
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
     if not user or not verify_password(credentials.password,user.get("password")):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {
@@ -28,20 +34,27 @@ def authenticate(credentials:HTTPBasicCredentials=Depends(security)):
 def signup_student(req:StudentUser):
     """Hnadles a student signup request"""
     # Check if username already exists
-    if users_collection.find_one({"username":req.username}):
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # hash the passsword before storing
-    hashed_password=hash_password(req.password)
-    users_collection.insert_one({
-        "fullname":req.fullname,
-        "email":req.email,
-        "username":req.username,
-        "password":hashed_password,
-        "role":"Student",
-        "grade":req.grade,
-        "school":req.school,
-    })
+    try:
+        if users_collection.find_one({"username":req.username}):
+            raise HTTPException(status_code=400, detail="Username already exists")
+
+        # hash the passsword before storing
+        hashed_password=hash_password(req.password)
+        users_collection.insert_one({
+            "fullname":req.fullname,
+            "email":req.email,
+            "username":req.username,
+            "password":hashed_password,
+            "role":"Student",
+            "grade":req.grade,
+            "school":req.school,
+        })
+    except HTTPException:
+        raise
+    except PyMongoError as e:
+        print("[AUTH ERROR] MongoDB student signup failed:",repr(e))
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
     return {"message":"Student user created successfully"}
 
 
@@ -49,19 +62,26 @@ def signup_student(req:StudentUser):
 def teacher_student(req:TeacherUser):
     """Hnadles a Teacher signup request"""
     # Check if username already exists
-    if users_collection.find_one({"username":req.username}):
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # hash the passsword before storing
-    hashed_password=hash_password(req.password)
-    users_collection.insert_one({
-        "fullname":req.fullname,
-        "email":req.email,
-        "username":req.username,
-        "password":hashed_password,
-        "role":"Teacher",
-        "school":req.school,
-    })
+    try:
+        if users_collection.find_one({"username":req.username}):
+            raise HTTPException(status_code=400, detail="Username already exists")
+
+        # hash the passsword before storing
+        hashed_password=hash_password(req.password)
+        users_collection.insert_one({
+            "fullname":req.fullname,
+            "email":req.email,
+            "username":req.username,
+            "password":hashed_password,
+            "role":"Teacher",
+            "school":req.school,
+        })
+    except HTTPException:
+        raise
+    except PyMongoError as e:
+        print("[AUTH ERROR] MongoDB teacher signup failed:",repr(e))
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
     return {"message":"Teacher user created successfully"}
     
 
