@@ -354,14 +354,14 @@ def student_dashboard():
         history = st.session_state.quiz_history
         if history:
             for attempt in history:
-                score = attempt["score"]
-                total = attempt["total"]
-                percent = int((score / total) * 100)
+                score = int(attempt.get("score") or 0)
+                total = int(attempt.get("total") or 0)
+                percent = int((score / total) * 100) if total else 0
 
                 with st.expander(
                     f"{attempt['topic']} — {score}/{total} ({percent}%)"
                 ):
-                    raw_quiz = attempt["quiz_content"]
+                    raw_quiz = attempt.get("quiz_content") or ""
 
                     blocks = re.split(r"(Question \d+:)", raw_quiz)[1:]
                     parsed = []
@@ -375,7 +375,13 @@ def student_dashboard():
                             ],
                         })
 
-                    for i, res in enumerate(attempt["results"]):
+                    if total == 0 or not parsed:
+                        st.warning("This quiz attempt has no saved questions to review.")
+                        continue
+
+                    for i, res in enumerate(attempt.get("results") or []):
+                        if i >= len(parsed):
+                            break
                         q = parsed[i]
                         st.markdown(f"### Q{i+1}: {q['question']}")
 
